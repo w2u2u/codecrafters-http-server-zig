@@ -14,10 +14,30 @@ pub fn main() !void {
     defer listener.deinit();
 
     const connection = try listener.accept();
-    try stdout.print("client connected!", .{});
+    try stdout.print("client connected!\n", .{});
     try handleConnection(connection);
 }
 
 fn handleConnection(connection: net.Server.Connection) !void {
-    try connection.stream.writeAll("HTTP/1.1 200 OK\r\n\r\n");
+    const stdout = std.io.getStdOut().writer();
+
+    var buffer: [1024]u8 = undefined;
+    const bufferSize = try connection.stream.read(buffer[0..]);
+    const request = buffer[0..bufferSize];
+
+    try stdout.print("Received request: {s}\n", .{request});
+
+    var splits = std.mem.split(u8, request, " ");
+
+    // Skip the first part of the request, which is the method (GET, POST, etc.)
+    _ = splits.next();
+
+    // Extract url from the request
+    const url = splits.next() orelse "";
+
+    if (std.mem.eql(u8, url, "/")) {
+        try connection.stream.writeAll("HTTP/1.1 200 OK\r\n\r\n");
+    } else {
+        try connection.stream.writeAll("HTTP/1.1 404 Not Found\r\n\r\n");
+    }
 }
